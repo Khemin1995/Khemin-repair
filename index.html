@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบแจ้งซ่อม - อัปโหลดหลักฐานการจ่ายเงิน</title>
+    <style>
+        /* สไตล์เดิมทั้งหมด... */
+        
+        /* เพิ่มสไตล์สำหรับส่วนอัปโหลด */
+        .upload-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px dashed #ccc;
+            display: none; /* ซ่อนไว้จนกว่าจะเลือกสถานะรอจ่ายเงิน */
+        }
+        
+        .preview-image {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .payment-status {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .verified {
+            color: green;
+        }
+        
+        .unverified {
+            color: orange;
+        }
+    </style>
+</head>
+<body>
+    <!-- ส่วน container และฟอร์มเดิม... -->
+
+    <!-- ในส่วนของ action-buttons ในฟังก์ชัน updateRepairList() -->
+    <div class="action-buttons">
+        ${repair.status !== 'เสร็จสิ้น' ? `
+            <button onclick="updateStatus(${repair.id}, 'รอซ่อม')">รอซ่อม</button>
+            ${repair.costType === 'เสียเงิน' ? `
+                <button onclick="showPaymentUpload(${repair.id})">รอจ่ายเงิน</button>
+            ` : ''}
+            <button onclick="updateStatus(${repair.id}, 'เสร็จสิ้น')">เสร็จสิ้น</button>
+        ` : ''}
+        <button onclick="deleteRepair(${repair.id})">ลบ</button>
+    </div>
+    
+    <!-- เพิ่มส่วนอัปโหลดสำหรับการจ่ายเงิน -->
+    <div id="paymentUpload_${repair.id}" class="upload-section">
+        <h3>อัปโหลดหลักฐานการจ่ายเงิน</h3>
+        <input type="file" id="paymentProof_${repair.id}" accept="image/*" onchange="previewImage(this, ${repair.id})">
+        <img id="preview_${repair.id}" class="preview-image" alt="ภาพตัวอย่าง">
+        <div class="payment-status" id="paymentStatus_${repair.id}"></div>
+        <button onclick="uploadPaymentProof(${repair.id})">ยืนยันการอัปโหลด</button>
+    </div>
+
+    <script>
+        // ฟังก์ชันเดิมทั้งหมด...
+        
+        // เพิ่มฟังก์ชันสำหรับจัดการการอัปโหลด
+        function showPaymentUpload(repairId) {
+            // ซ่อนส่วนอัปโหลดอื่นๆ ทั้งหมด
+            document.querySelectorAll('.upload-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // แสดงส่วนอัปโหลดสำหรับรายการนี้
+            const uploadSection = document.getElementById(`paymentUpload_${repairId}`);
+            uploadSection.style.display = 'block';
+            
+            // อัปเดตสถานะเป็นรอจ่ายเงิน
+            updateStatus(repairId, 'รอจ่ายเงิน');
+        }
+        
+        function previewImage(input, repairId) {
+            const preview = document.getElementById(`preview_${repairId}`);
+            const file = input.files[0];
+            
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function uploadPaymentProof(repairId) {
+            const input = document.getElementById(`paymentProof_${repairId}`);
+            const statusDiv = document.getElementById(`paymentStatus_${repairId}`);
+            
+            if (!input.files[0]) {
+                alert('กรุณาเลือกไฟล์ภาพหลักฐานการจ่ายเงิน');
+                return;
+            }
+            
+            // ในระบบจริงควรมีการอัปโหลดไปยังเซิร์ฟเวอร์ที่นี่
+            // แต่สำหรับตัวอย่างนี้เราจะจำลองการทำงาน
+            
+            // จำลองการอัปโหลดสำเร็จ
+            setTimeout(() => {
+                statusDiv.textContent = '✔ รับหลักฐานเรียบร้อย รอการตรวจสอบ';
+                statusDiv.className = 'payment-status verified';
+                
+                // อัปเดตข้อมูลการซ่อม
+                const repairIndex = repairs.findIndex(r => r.id === repairId);
+                if (repairIndex !== -1) {
+                    repairs[repairIndex].paymentProof = true;
+                    repairs[repairIndex].paymentStatus = 'รอตรวจสอบ';
+                    repairs[repairIndex].updatedAt = new Date().toLocaleString();
+                }
+                
+                // ปิดส่วนอัปโหลดหลังจาก 2 วินาที
+                setTimeout(() => {
+                    document.getElementById(`paymentUpload_${repairId}`).style.display = 'none';
+                }, 2000);
+                
+            }, 1000);
+        }
+        
+        // ในฟังก์ชัน submitRepair() ให้เพิ่ม field ต่อไปนี้ใน object repair:
+        // paymentProof: false,
+        // paymentStatus: '',
+        
+        // ในฟังก์ชัน updateRepairList() ให้เพิ่มแสดงสถานะการจ่ายเงิน:
+        /*
+        ${repair.costType === 'เสียเงิน' && repair.paymentStatus ? `
+            <p><strong>สถานะการจ่ายเงิน:</strong> ${repair.paymentStatus}</p>
+        ` : ''}
+        */
+    </script>
+</body>
+</html>
